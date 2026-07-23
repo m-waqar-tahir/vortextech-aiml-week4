@@ -82,29 +82,6 @@ approach has no way to detect tone or word order. A model that captures
 context, such as an LSTM or transformer-based model, would likely handle
 both cases better.
 
-## Submitting to GitHub
-
-Per the program's convention, name the repository `vortextech-aiml-week4`.
-
-From inside this project folder:
-
-```
-git init
-git add .
-git commit -m "Week 4: Sentiment Analysis on IMDB Movie Reviews"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/vortextech-aiml-week4.git
-git push -u origin main
-```
-
-If the repository doesn't exist yet on GitHub, create it first (empty, no
-README) at github.com/new using that name, then run the commands above.
-
-After pushing, fill out the Week 4 submission form with your name, track,
-and the GitHub repository link, per the program's instructions. This is the
-final week of the internship track, so double-check the README renders
-correctly on GitHub before submitting.
-
 ## Status
 
 ✅ Completed
