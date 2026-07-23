@@ -1,0 +1,326 @@
+VORTEX TECH AI/ML INTERNSHIP - WEEK 4 - FULL CODE GUIDE
+Project: Build a Sentiment Analysis Model (Capstone)
+Dataset: IMDB-Dataset.csv -- 50,000 movie reviews, columns "review" (raw text)
+and "sentiment" (positive/negative), perfectly balanced at 25,000 each.
+
+This is the capstone project, combining text preprocessing, a new feature
+extraction technique (TF-IDF), model training, and a written analysis. Unlike
+previous weeks, the raw input here is unstructured text, not a table of
+numbers, so several steps are new.
+
+------------------------------------------------------------
+STEP 1: Import libraries
+------------------------------------------------------------
+
+import re
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+Explanation:
+Same core libraries as previous weeks, plus re, Python's built-in regular
+expression module, used to strip out HTML tags and punctuation from the raw
+review text. Scikit-learn pieces are imported later, at the point each is
+first used.
+
+------------------------------------------------------------
+STEP 2: Load the dataset
+------------------------------------------------------------
+
+df = pd.read_csv('IMDB-Dataset.csv')
+df.shape
+df.head()
+
+Explanation:
+Loads the raw dataset. shape and head confirm it loaded correctly, with two
+columns: review (the raw text) and sentiment (positive/negative).
+
+------------------------------------------------------------
+STEP 3: Check the class balance
+------------------------------------------------------------
+
+df['sentiment'].value_counts()
+
+Explanation:
+Unlike the Week 2 classification dataset, this one is perfectly balanced:
+25,000 positive and 25,000 negative reviews. This matters for the rest of the
+project, since it means accuracy alone is actually a fair, non-misleading
+metric here, unlike Week 2's 96/4 imbalance where accuracy alone was
+deceptive. This is worth stating explicitly in your final summary as a
+contrast with Week 2.
+
+------------------------------------------------------------
+STEP 4: Look at a raw example before cleaning
+------------------------------------------------------------
+
+df['review'].iloc[0]
+
+Explanation:
+Printing one raw review before doing anything to it lets you see what you are
+actually dealing with. On this dataset, reviews contain HTML line break tags
+literally written as <br /><br /> inside the text, left over from how the
+reviews were originally scraped from a webpage. This is exactly the kind of
+messy, real-world detail the brief refers to, and it needs to be handled
+during cleaning, not just punctuation and casing.
+
+------------------------------------------------------------
+STEP 5: Write a text cleaning function
+------------------------------------------------------------
+
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'<.*?>', ' ', text)
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+df['cleaned_text'] = df['review'].apply(clean_text)
+df[['review', 'cleaned_text']].head()
+
+Explanation:
+This function performs cleaning in a specific order that matters:
+1. text.lower() converts everything to lowercase, so "Great" and "great" are
+   treated as the same word later.
+2. re.sub(r'<.*?>', ' ', text) removes HTML tags like <br /> by matching
+   anything between angle brackets and replacing it with a space. This step
+   must happen before the next one, or the angle brackets themselves would
+   just be stripped by the punctuation removal, leaving fragments like "br"
+   stuck onto surrounding words.
+3. re.sub(r'[^a-zA-Z\s]', '', text) removes anything that is not a letter or
+   whitespace, which is the punctuation and character cleaning the brief
+   specifically points to, including numbers, quotation marks, and remaining
+   symbols.
+4. re.sub(r'\s+', ' ', text).strip() collapses any repeated spaces left
+   behind by the previous two steps into single spaces, and trims leading or
+   trailing whitespace.
+apply(clean_text) runs this function on every row of the review column,
+storing the result in a new cleaned_text column, so the original review text
+is preserved for comparison.
+
+------------------------------------------------------------
+STEP 6: Create a numeric label
+------------------------------------------------------------
+
+df['label'] = (df['sentiment'] == 'positive').astype(int)
+df['label'].value_counts()
+
+Explanation:
+Same pattern as Week 2: converts the text sentiment column into a numeric 1
+(positive) or 0 (negative) label, since scikit-learn models require numeric
+targets.
+
+------------------------------------------------------------
+STEP 7: Convert text into TF-IDF features
+------------------------------------------------------------
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+X = vectorizer.fit_transform(df['cleaned_text'])
+y = df['label']
+
+X.shape
+
+Explanation:
+This is the key new technique this week. TfidfVectorizer converts text into
+numeric features based on TF-IDF (term frequency-inverse document frequency):
+words that appear often in a specific review but rarely across all reviews
+get a higher score, since they are more distinctive of that review's content,
+while extremely common words get a lower score. max_features=5000 keeps only
+the 5000 most informative words across the whole dataset, to keep the feature
+count manageable. stop_words='english' additionally removes very common
+English words (the, is, and, and so on) before scoring, since these carry
+little sentiment information on their own. fit_transform both learns the
+vocabulary from the data and converts every review into a numeric vector in
+one step. The resulting X has 50,000 rows (one per review) and 5000 columns
+(one per retained word).
+
+------------------------------------------------------------
+STEP 8: Train-test split
+------------------------------------------------------------
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+X_train.shape
+X_test.shape
+
+Explanation:
+Same 80/20 split pattern as previous weeks. stratify=y is included here to
+preserve the class balance in both sets, even though the full dataset is
+already balanced 50/50, since it costs nothing and protects against an
+unlucky split.
+
+------------------------------------------------------------
+STEP 9: Train a Logistic Regression model
+------------------------------------------------------------
+
+from sklearn.linear_model import LogisticRegression
+
+lr_model = LogisticRegression(max_iter=1000)
+lr_model.fit(X_train, y_train)
+
+lr_predictions = lr_model.predict(X_test)
+
+Explanation:
+Same LogisticRegression pattern as Week 2, now applied to TF-IDF text
+features instead of one-hot encoded tabular features. max_iter=1000 again
+raises the internal iteration limit to help the model converge.
+
+------------------------------------------------------------
+STEP 10: Evaluate the Logistic Regression model
+------------------------------------------------------------
+
+from sklearn.metrics import accuracy_score, f1_score
+
+lr_accuracy = accuracy_score(y_test, lr_predictions)
+lr_f1 = f1_score(y_test, lr_predictions)
+
+print(f"Logistic Regression Accuracy: {lr_accuracy:.4f}")
+print(f"Logistic Regression F1-score: {lr_f1:.4f}")
+
+Explanation:
+Same accuracy_score and f1_score functions as Week 2. On this dataset,
+Logistic Regression achieves an accuracy of approximately 0.8885 and an
+F1-score of approximately 0.8895. Because this dataset is perfectly balanced,
+unlike Week 2's classification target, these two numbers being close together
+is expected and is itself a sign of healthy, non-misleading evaluation,
+rather than something that needs a minority-class check the way Week 2 did.
+
+------------------------------------------------------------
+STEP 11: Train and evaluate Multinomial Naive Bayes for comparison
+------------------------------------------------------------
+
+from sklearn.naive_bayes import MultinomialNB
+
+nb_model = MultinomialNB()
+nb_model.fit(X_train, y_train)
+
+nb_predictions = nb_model.predict(X_test)
+
+nb_accuracy = accuracy_score(y_test, nb_predictions)
+nb_f1 = f1_score(y_test, nb_predictions)
+
+print(f"Naive Bayes Accuracy: {nb_accuracy:.4f}")
+print(f"Naive Bayes F1-score: {nb_f1:.4f}")
+
+Explanation:
+MultinomialNB is a probabilistic model commonly used for text classification,
+based on word frequency counts. Same fit, predict, evaluate pattern as Step 9
+and 10. On this dataset, it achieves an accuracy of approximately 0.8531 and
+F1-score of approximately 0.8540, both noticeably lower than Logistic
+Regression's approximately 0.8885 and 0.8895. This suggests Logistic
+Regression captures the relationship between TF-IDF word scores and sentiment
+more effectively on this dataset, and is the better choice to use going
+forward, including for Step 13's custom sentence testing.
+
+------------------------------------------------------------
+STEP 12: Confusion matrix
+------------------------------------------------------------
+
+from sklearn.metrics import confusion_matrix
+
+cm = confusion_matrix(y_test, lr_predictions)
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=['Negative', 'Positive'],
+            yticklabels=['Negative', 'Positive'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix - Logistic Regression')
+plt.show()
+
+Explanation:
+Same confusion matrix pattern as Week 2, applied to the Logistic Regression
+predictions. On this dataset the four counts come out roughly balanced
+between the two types of mistakes (false positives and false negatives),
+which is expected given the balanced classes, unlike Week 2 where one type of
+error dominated due to the class imbalance there.
+
+------------------------------------------------------------
+STEP 13: Test on your own example sentences
+------------------------------------------------------------
+
+example_sentences = [
+    "This was the best experience ever",
+    "This was a complete waste of time",
+    "The movie was okay, not great but not terrible either"
+]
+
+cleaned_examples = [clean_text(sentence) for sentence in example_sentences]
+example_vectors = vectorizer.transform(cleaned_examples)
+
+example_predictions = lr_model.predict(example_vectors)
+example_probabilities = lr_model.predict_proba(example_vectors)
+
+for sentence, prediction, probability in zip(example_sentences, example_predictions, example_probabilities):
+    label = "Positive" if prediction == 1 else "Negative"
+    confidence = probability[prediction]
+    print(f"'{sentence}' -> {label} (confidence: {confidence:.4f})")
+
+Explanation:
+This is the brief's required test of 3 original example sentences. Each
+sentence is cleaned using the exact same clean_text function from Step 5,
+important because the model can only understand text processed the same way
+it was trained on. vectorizer.transform (not fit_transform) is used here,
+specifically because the vectorizer's vocabulary was already learned from the
+training data in Step 7; transform reuses that existing vocabulary rather
+than learning a new one from just these 3 short sentences, which would not
+make sense. predict_proba returns the model's confidence for each class, and
+indexing by prediction pulls out the confidence specifically for whichever
+class was actually predicted.
+
+On this dataset, the first two sentences behave as expected: "This was the
+best experience ever" predicts Positive with about 98 percent confidence, and
+"This was a complete waste of time" predicts Negative with about 99.7 percent
+confidence. The third sentence, "The movie was okay, not great but not
+terrible either," predicts Negative with about 89 percent confidence, despite
+being a genuinely mixed or neutral statement, not a clearly negative one.
+This is a real, worth-reporting limitation, not a bug to fix: the model was
+trained only on clearly positive or clearly negative reviews, with no neutral
+category, so it has no real way to represent ambivalence, and it appears to
+be picking up on the word "terrible" and weighting it heavily despite the
+surrounding qualifiers ("not... but not... either") that a human reader would
+use to soften it.
+
+------------------------------------------------------------
+STEP 14: Final written summary
+------------------------------------------------------------
+
+This step is not code. In a markdown cell, write a summary covering the full
+pipeline and your honest assessment, including:
+
+- Your approach: raw review text was lowercased, HTML tags removed, and
+  punctuation and numbers stripped, then converted into 5000 TF-IDF features
+  with English stop words removed, then split 80/20 for training and testing.
+- Your model choice: Logistic Regression was chosen over Multinomial Naive
+  Bayes after comparing both, since it achieved higher accuracy (about 0.8885
+  versus 0.8531) and F1-score (about 0.8895 versus 0.8540) on this dataset.
+- Your results in plain terms: the model correctly classifies sentiment for
+  roughly 89 percent of held-out reviews it has never seen, on a perfectly
+  balanced dataset, meaning this is a genuine, non-inflated measure of
+  performance, unlike accuracy figures from imbalanced datasets like Week 2's.
+- At least one honest limitation: the model struggles with mixed or neutral
+  sentiment, shown directly by the third custom sentence in Step 13 being
+  confidently misclassified. Since the model was only ever trained on clearly
+  positive or clearly negative examples, it has no mechanism for expressing
+  uncertainty or genuine ambivalence, and can be misled by strong individual
+  words like "terrible" even when surrounding context softens their meaning.
+  Sarcasm is a related, commonly cited limitation for this kind of model,
+  worth mentioning even if you did not specifically test for it: a sarcastic
+  positive-sounding sentence meaning something negative would likely be
+  misread the same way.
+- What you would try next: a model that captures word order and context
+  rather than treating text as an unordered bag of words, such as an LSTM or
+  a transformer-based model, would likely handle mixed sentiment and sarcasm
+  better than TF-IDF with Logistic Regression, at the cost of needing more
+  data and compute.
+
+------------------------------------------------------------
+END OF WEEK 4 GUIDE
+------------------------------------------------------------
